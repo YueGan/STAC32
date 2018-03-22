@@ -1,0 +1,180 @@
+---
+title: "STAC32 Final Project"
+author: Yue Gan 1000620606, Liang Liang 1000415525, Zhu Zhu 1000421554, Yu Qian 1000823460,
+  Liang Zhou 1001161574
+date: '2017-12-01'
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(readxl)
+library(lubridate)
+library(ggplot2)
+library(mvtnorm)
+library(GGally)
+library(gplots)
+library(DAAG)
+library(smmr)
+#house = read_excel("/Users/liangliang/Downloads/houses (1).xlsx", sheet = 1)
+house = read_excel("./house.xlsx", sheet = 1)
+house
+#mls listing is just a number to identify the house we can drop it since we already have the index of them in the dataframe
+
+tmp_house = house
+tmp_house["apartment"] = ifelse(tmp_house["type"] == "apartment", 1, 0)
+tmp_house["house"] = ifelse(tmp_house["type"] == "house", 1, 0)
+tmp_house["townhouse"] = ifelse(tmp_house["type"] == "townhouse", 1, 0)
+
+tmp_house = tmp_house[-5]
+tmp_house = tmp_house[-1]
+tmp_house
+```
+
+# Introduction
+
+Now days, the real estate market has become one of the newly favoured type of investments. People pay attention on the market while selecting a property to either live or to invest. Many of them have already discovered that the location of a property play an important role in setting up the asking price. Many of Toronto neighbourhoods are in such strategic locations for employment, that given the housing shortage, urban intensification, poor transit and roadways, that the condos and homes in them will never see a significant price drop. (http://gordcollins.com/real-estate/toronto-forecast-2017/) However, within the same area, there are still some significant price difference that could be discovered through variations of different types of property. In the following report, the selected data http://www.utsc.utoronto. ca/~butler/c32/houses.xlsx. was used to look at the relationships between the price and the features of the properties such as the number of bedrooms and bathrooms, and the type pf property for over 50 properties in the Scarborough area. The goal is to create a model that would help people to predict the asking price for a property. 
+
+
+# About the Data
+### subjects and groups
+subjects and groups
+Fifty-four of the MLS listing was selected from realtors.ca in this study to form the dataset http://www.utsc.utoronto. ca/~butler/c32/houses.xlsx. All the MLS listing is selected from the Scarborough area. The subjects were divided into two groups: variables and different types. Each MLS listing has its corresponding bathrooms, washrooms and property types. 
+Fifty-four subjects were divided into two groups, variable or property type. For variable group, it examines the relationship between the different rooms and the asking price. For the property type group, subjects fall into one of the three different types, townhouse, condo, or house category. The mean for the asking price for this fifty-five properties is 461801.6 and the median is 378900.
+
+```{r}
+
+house
+summary(house)
+```
+The mean of asking is 461802, bedrooms is 3.083 and bathrooms is 1.889.
+The median of asking is 378900,bedrooms is 3.000 and bathrooms is 2.000.
+
+## Data Exploration
+
+```{r}
+# Exploring the coorelation of the variables using heatmap
+corr = round(cor(tmp_house), 2)
+heatmap.2(corr, trace="none", cellnote = corr, Rowv=FALSE, symm=TRUE)
+```
+
+We can see that bedrooms and apartment tends to have a high correlation with asking.
+
+```{r}
+## Checking Relationship between asking, bedrooms, bathrooms
+plot1<-ggpairs(data=house, columns=1:3,mapping = aes(color = "dark green"),axisLabels="show")
+plot1
+
+```
+
+```{r}
+## Checking Relationship between asking and type 
+plot2 <-ggplot(house,aes(x=type,y=asking,colour=type))+geom_boxplot()
+plot2
+```
+There are two outlires in the apartment. 
+
+```{r}
+
+## Price vs. Bathrooms
+par(mfrow = c(1,3))
+hist(house$bathrooms, breaks = 20, xlab = "", col = "lightsteelblue",  main = "Bathrooms")
+plot(density(house$bathrooms), xlab="", col = "steelblue", main="Bathrooms")
+scatter.smooth(house$bathrooms, house$asking, col="steelblue", xlab="", ylab="Price",main="Bathrooms",lpars=list(col="red", lwd=2))
+```
+Nice correlation, as # of bahtrooms increases [median of bar plot], price increases as well
+
+```{r}
+## Price vs. Bedrooms 
+par(mfrow = c(1,3))
+hist(house$bedrooms, breaks = 20, xlab = "", col = "lightsteelblue",  main = "bedrooms")
+plot(density(house$bedrooms), xlab="", col = "steelblue", main="bedrooms")
+scatter.smooth(house$bedrooms, house$asking, col="steelblue", xlab="", ylab="Price",main="bedrooms",lpars=list(col="red", lwd=2))
+```
+Nice correlation, as # of Bedrooms increases [median of bar plot], price increases as well
+
+```{r}
+## Bathrooms vs. Bedrooms
+plot5 <- plot(bathrooms~bedrooms, data=house, col=(c("gold","darkgreen")),main="Bathrooms vs. Bedrooms", xlab="Bedrooms", ylab="Bathrooms")
+plot5
+
+```
+
+```{r}
+## Plots 1 shows the correlation between each variables and they are:
+# corr between asking vs bathrooms: 0.76
+# corr between asking vs bedrooms: 0.522
+
+## I want to use the predictor bathrooms for predicting house prices.
+
+plot(house$bathrooms,house$asking, main="bathrooms vs. Price of House", xlab="bathrooms", ylab="Price of House", pch=19)
+
+```
+
+```{r}
+## Ploting average prices in terms of the number of bathrooms and fit a linear model to this graph:
+
+average_asking_byBathrooms <-aggregate(asking~bathrooms, FUN=mean, data=house)
+plot(average_asking_byBathrooms,main="Avg. asking by # Bathroom")
+lin_model_bathroom<-lm(asking~bathrooms,data=average_asking_byBathrooms)
+summary(lin_model_bathroom)
+abline(lin_model_bathroom)
+
+```
+
+```{r}
+
+
+#compare the number of bedrooms between each type
+ggplot(house,aes(x=mls_listing,y=bathrooms,colour=type))+geom_point()+geom_smooth(se=F)
+ggplot(house,aes(x=mls_listing,y=bathrooms,colour=type))+geom_point()+geom_smooth(method = "lm")
+ggplot(house,aes(x=mls_listing,y=bedrooms,colour=type))+geom_point()+geom_smooth(se=F)
+ggplot(house,aes(x=mls_listing,y=bedrooms,colour=type))+geom_point()+geom_smooth(method = "lm")
+
+```
+
+
+# Methodology
+
+
+```{r}
+# We want to test whether the median of different house price would have the same median
+
+median_test(house, asking, type)
+
+#The p-value is smaller than 0.05, therefore we reject the null hypothesis and conclude that the medians are not the same.
+
+```
+
+
+# Analysis and results
+```{r}
+house
+full = lm(asking~bedrooms+bathrooms+type, data=house)
+summary(full)
+hatvalues(full)
+2*(3+1)/54
+drop1 = lm(asking~bathrooms+type, data=house)
+summary(drop1)
+anova(full,drop1)
+```
+This is comparing the two models,one with all variables, and the other one with two variables. Those two R-squared are similar. And the most extreme value is 44, with a leverage of 0.22. 
+
+```{r}
+tmp_house
+full = lm(asking~., data=tmp_house)
+cv.lm(data = as.data.frame(data.matrix(tmp_house)), full, m=2)
+```
+
+
+We can see that with cross validation, we get an approximately good error result
+
+# Conclusions
+
+The results of the study of the relationship between the asking price of the properties and numbers of bedrooms and bathrooms indicates that additional bedrooms or bathrooms would cause an increasing in the asking price. Among the three types of properties, house is the most expensive which is about 750000 and apartment is the least expensive which is around 350000 around the Scarborough area. Although the asking price could be told by the number of bedrooms and bathrooms the property has, it is still hard to give a precise prediction on the asking price due to many other features.
+
+# Citation
+www.kaggle.com/prabhats/linear-regression-on-house-price
+www.kaggle.com/auygur/step-by-step-house-price-prediction-r-2-0-77/code
+www.kaggle.com/amitdhakre13/eda-linear-regression-k-fold-cv-adj-r2-0-87
